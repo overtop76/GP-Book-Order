@@ -1,0 +1,94 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: inventory_entries
+    // Document ID: auto-generated
+    // Fields:
+    //   - program: string (required)
+    //   - grade: string (required)
+    //   - subject: string (required)
+    //   - bookTitle: string (required)
+    //   - isbn: string (required)
+    //   - publisher: string (optional)
+    //   - currentStock: number (required)
+    //   - projectedRequired: number (required)
+    //   - orderQuantity: number (required)
+    //   - format: string (required)
+    //   - type: string (required)
+    //   - createdBy: string (required, immutable)
+    //   - createdAt: string (required, immutable)
+    //
+    // Collection: users
+    // Document ID: username
+    // Fields:
+    //   - username: string (required)
+    //   - role: string (required)
+    //   - program: string (required)
+    //
+    // Collection: user_accounts
+    // Document ID: username
+    // Fields:
+    //   - username: string (required)
+    //   - password: string (required)
+    //   - program: string (required)
+    //   - role: string (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProgramAccess(targetProgram) {
+      let userDoc = getUserDoc();
+      return userDoc.role == 'admin' || userDoc.program == 'All' || userDoc.program == targetProgram;
+    }
+
+    function isRole(roleName) {
+      return getUserDoc().role == roleName;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated() && (request.auth.uid == uid || isRole('admin'));
+      // Allow users to create their own profile upon login, validating against user_accounts
+      allow create: if isAuthenticated() && request.auth.uid == uid &&
+        exists(/databases/$(database)/documents/user_accounts/$(request.resource.data.username)) &&
+        get(/databases/$(database)/documents/user_accounts/$(request.resource.data.username)).data.role == request.resource.data.role &&
+        get(/databases/$(database)/documents/user_accounts/$(request.resource.data.username)).data.program == request.resource.data.program;
+      allow update: if isRole('admin');
+      allow delete: if isRole('admin');
+    }
+
+    match /user_accounts/{username} {
+      allow get: if true; // Allow checking credentials during login
+      allow list: if isRole('admin'); // Only admins can list all accounts
+      // Allow bootstrapping the Admin account
+      allow create: if isRole('admin') || username == 'Admin';
+      allow update: if isRole('admin');
+      allow delete: if isRole('admin');
+    }
+
+    match /inventory_entries/{entryId} {
+      allow read: if isAuthenticated() && hasProgramAccess(resource.data.program);
+      allow create: if isAuthenticated() && (isRole('admin') || isRole('coordinator')) && hasProgramAccess(request.resource.data.program);
+      allow update: if isAuthenticated() && (isRole('admin') || isRole('coordinator')) && hasProgramAccess(resource.data.program) && hasProgramAccess(request.resource.data.program);
+      allow delete: if isAuthenticated() && (isRole('admin') || isRole('coordinator')) && hasProgramAccess(resource.data.program);
+    }
+  }
+}

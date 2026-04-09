@@ -1,0 +1,142 @@
+{
+  "entities": {
+    "InventoryEntry": {
+      "title": "InventoryEntry",
+      "description": "A book order inventory entry for a specific program, grade, and subject.",
+      "type": "object",
+      "properties": {
+        "program": {
+          "type": "string",
+          "description": "The educational program (American, British, IB)."
+        },
+        "grade": {
+          "type": "string",
+          "description": "The grade level."
+        },
+        "subject": {
+          "type": "string",
+          "description": "The subject for the book."
+        },
+        "bookTitle": {
+          "type": "string",
+          "description": "The title of the book."
+        },
+        "isbn": {
+          "type": "string",
+          "description": "The ISBN of the book."
+        },
+        "publisher": {
+          "type": "string",
+          "description": "The publisher of the book."
+        },
+        "currentStock": {
+          "type": "number",
+          "description": "The current number of copies in store."
+        },
+        "projectedRequired": {
+          "type": "number",
+          "description": "The projected required number of copies."
+        },
+        "orderQuantity": {
+          "type": "number",
+          "description": "The calculated order quantity (projectedRequired - currentStock)."
+        },
+        "format": {
+          "type": "string",
+          "description": "The format of the book (Digital, Hard Copy, Both)."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of the book (Student Copy, Teacher Edition, Resource Material)."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the user who created the entry."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the entry was created."
+        }
+      },
+      "required": [
+        "program",
+        "grade",
+        "subject",
+        "bookTitle",
+        "isbn",
+        "currentStock",
+        "projectedRequired",
+        "orderQuantity",
+        "format",
+        "type",
+        "createdBy",
+        "createdAt"
+      ]
+    },
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "User account for authentication.",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "The unique username."
+        },
+        "password": {
+          "type": "string",
+          "description": "The password (should be hashed)."
+        },
+        "program": {
+          "type": "string",
+          "enum": ["American", "British", "IB"],
+          "description": "The assigned program."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "coordinator", "viewer"]
+        }
+      },
+      "required": ["username", "password", "program", "role"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "coordinator", "viewer"]
+        },
+        "program": {
+          "type": "string",
+          "enum": ["American", "British", "IB"]
+        }
+      },
+      "required": ["username", "role", "program"]
+    }
+  },
+  "firestore": {
+    "/inventory_entries/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/InventoryEntry"
+      },
+      "description": "Collection of all book inventory entries."
+    },
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Collection of user profiles."
+    },
+    "/user_accounts/{username}": {
+      "schema": {
+        "$ref": "#/entities/UserAccount"
+      },
+      "description": "Collection of user credentials."
+    }
+  }
+}
