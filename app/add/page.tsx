@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { logAudit } from '@/lib/audit';
 
 const PROGRAMS = ['American', 'British', 'IB'] as const;
 
@@ -42,7 +43,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export default function AddOrder() {
-  const { user, role, program: userProgram, loading } = useAuth();
+  const { user, username, role, program: userProgram, loading } = useAuth();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -98,12 +99,15 @@ export default function AddOrder() {
     }
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'inventory_entries'), {
+      const docRef = await addDoc(collection(db, 'inventory_entries'), {
         ...data,
         orderQuantity,
         createdBy: user.displayName || 'unknown',
         createdAt: new Date().toISOString()
       });
+      
+      await logAudit('CREATE', 'inventory_entries', docRef.id, { ...data, orderQuantity }, username || 'unknown');
+      
       localStorage.removeItem('bookOrderDraft');
       router.push('/');
     } catch (error) {

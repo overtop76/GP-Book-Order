@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
 import { useRouter, useParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { logAudit } from '@/lib/audit';
 
 const PROGRAMS = ['American', 'British', 'IB'] as const;
 
@@ -42,7 +43,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export default function EditOrder() {
-  const { user, role, program: userProgram, loading } = useAuth();
+  const { user, username, role, program: userProgram, loading } = useAuth();
   const router = useRouter();
   const params = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,6 +102,9 @@ export default function EditOrder() {
         ...data,
         orderQuantity,
       });
+      
+      await logAudit('UPDATE', 'inventory_entries', params.id as string, { ...data, orderQuantity }, username || 'unknown');
+      
       router.push('/');
     } catch (error) {
       console.error("Error updating document: ", error);

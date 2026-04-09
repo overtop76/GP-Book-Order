@@ -90,5 +90,11 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (isRole('admin') || isRole('coordinator')) && hasProgramAccess(resource.data.program) && hasProgramAccess(request.resource.data.program);
       allow delete: if isAuthenticated() && (isRole('admin') || isRole('coordinator')) && hasProgramAccess(resource.data.program);
     }
+
+    match /audit_logs/{logId} {
+      allow read: if isRole('admin');
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Audit logs should be immutable
+    }
   }
 }

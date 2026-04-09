@@ -8,6 +8,7 @@ import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { logAudit } from '@/lib/audit';
 
 interface InventoryEntry {
   id: string;
@@ -25,7 +26,7 @@ interface InventoryEntry {
 }
 
 export default function Dashboard() {
-  const { user, role, program: userProgram, loading, signIn } = useAuth();
+  const { user, username: authUsername, role, program: userProgram, loading, signIn } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -124,7 +125,11 @@ export default function Dashboard() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this entry?')) {
       try {
+        const entryToDelete = entries.find(e => e.id === id);
         await deleteDoc(doc(db, 'inventory_entries', id));
+        if (entryToDelete) {
+          await logAudit('DELETE', 'inventory_entries', id, entryToDelete, authUsername || 'unknown');
+        }
       } catch (err) {
         console.error('Error deleting entry:', err);
         alert('Failed to delete entry. Check permissions.');

@@ -7,6 +7,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
+  username: string | null;
   role: string | null;
   program: string | null;
   loading: boolean;
@@ -16,6 +17,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  username: null,
   role: null,
   program: null,
   loading: true,
@@ -27,13 +29,14 @@ export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [program, setProgram] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const signIn = async (username: string, password: string) => {
+  const signIn = async (inputUsername: string, password: string) => {
     // Validate credentials
-    const accountRef = doc(db, 'user_accounts', username);
+    const accountRef = doc(db, 'user_accounts', inputUsername);
     const accountSnap = await getDoc(accountRef);
     
     if (!accountSnap.exists() || accountSnap.data().password !== password) {
@@ -51,12 +54,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (!userSnap.exists()) {
       await setDoc(userRef, {
-        username,
+        username: inputUsername,
         role: accountData.role,
         program: accountData.program
       });
     }
     
+    setUsername(inputUsername);
     setRole(accountData.role);
     setProgram(accountData.program);
   };
@@ -89,10 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
+          setUsername(userSnap.data().username);
           setRole(userSnap.data().role);
           setProgram(userSnap.data().program);
         }
       } else {
+        setUsername(null);
         setRole(null);
         setProgram(null);
       }
@@ -111,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, program, loading, signIn, logOut }}>
+    <AuthContext.Provider value={{ user, username, role, program, loading, signIn, logOut }}>
       {children}
     </AuthContext.Provider>
   );
