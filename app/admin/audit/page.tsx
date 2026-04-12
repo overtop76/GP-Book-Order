@@ -69,8 +69,20 @@ export default function AuditLogs() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {log.collection}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={JSON.stringify(log.details)}>
-                    {log.details?.bookTitle || log.details?.username || JSON.stringify(log.details)}
+                  <td className="px-6 py-4 text-sm text-gray-500 max-w-md" title={JSON.stringify(log.details)}>
+                    {log.collection === 'inventory_entries' ? (
+                      <div>
+                        <div className="font-medium text-gray-900 truncate">{log.details?.bookTitle || 'Unknown Book'}</div>
+                        <div className="text-xs text-gray-500 mt-1 truncate">
+                          {log.details?.isbn && <span>ISBN: {log.details.isbn} | </span>}
+                          {log.details?.grade && <span>{log.details.grade} </span>}
+                          {log.details?.subject && <span>({log.details.subject}) | </span>}
+                          {log.details?.orderQuantity !== undefined && <span>Qty: {log.details.orderQuantity}</span>}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="truncate">{log.details?.username || JSON.stringify(log.details)}</div>
+                    )}
                   </td>
                 </tr>
               ))}

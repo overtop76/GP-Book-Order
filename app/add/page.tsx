@@ -190,15 +190,16 @@ export default function AddOrder() {
     }
     setIsSubmitting(true);
     try {
+      const sanitizedData = JSON.parse(JSON.stringify(data));
       const docRef = await addDoc(collection(db, 'inventory_entries'), {
-        ...data,
+        ...sanitizedData,
         projectedRequired,
         orderQuantity,
         createdBy: user.displayName || 'unknown',
         createdAt: new Date().toISOString()
       });
       
-      await logAudit('CREATE', 'inventory_entries', docRef.id, { ...data, projectedRequired, orderQuantity }, username || 'unknown');
+      await logAudit('CREATE', 'inventory_entries', docRef.id, { ...sanitizedData, projectedRequired, orderQuantity }, username || 'unknown');
       
       localStorage.removeItem('bookOrderDraft');
       router.push('/');
@@ -230,11 +231,39 @@ export default function AddOrder() {
     setValue('subject', e.target.value, { shouldValidate: true });
   };
 
+  const handleClearDraft = () => {
+    if (confirm('Are you sure you want to clear your draft? This will reset the form.')) {
+      localStorage.removeItem('bookOrderDraft');
+      setDraftSavedTime(null);
+      
+      // Reset form to default values
+      const defaultValues = {
+        program: userProgram !== 'All' ? userProgram : 'American',
+        grade: '',
+        subject: '',
+        bookTitle: '',
+        isbn: '',
+        publisher: '',
+        currentStock: 0,
+        nextYearStudents: 0,
+        projectionPercentage: 0,
+        format: 'Digital',
+        type: 'Student Copy'
+      };
+      
+      Object.keys(defaultValues).forEach(key => {
+        setValue(key as keyof FormData, (defaultValues as any)[key]);
+      });
+      setIsCustomSubject(false);
+      setCustomSubject('');
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Add Book Order</h1>
-        <div className="flex items-center text-sm text-gray-500 italic">
+        <div className="flex items-center text-sm text-gray-500 italic space-x-4">
           {draftSavedTime ? (
             <span className="flex items-center text-green-600">
               <Check className="w-4 h-4 mr-1" />
@@ -242,6 +271,15 @@ export default function AddOrder() {
             </span>
           ) : (
             <span>Draft auto-saves as you type</span>
+          )}
+          {draftSavedTime && (
+            <button 
+              type="button" 
+              onClick={handleClearDraft}
+              className="text-red-500 hover:text-red-700 underline text-xs not-italic"
+            >
+              Clear Draft
+            </button>
           )}
         </div>
       </div>

@@ -11,11 +11,14 @@ export const logAudit = async (
   username: string
 ) => {
   try {
+    // Firestore does not support undefined values. Sanitize details.
+    const sanitizedDetails = details ? JSON.parse(JSON.stringify(details)) : {};
+    
     await addDoc(collection(db, 'audit_logs'), {
       action,
       collection: collectionName,
       documentId,
-      details,
+      details: sanitizedDetails,
       username,
       timestamp: new Date().toISOString()
     });

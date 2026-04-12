@@ -22,8 +22,12 @@ const AVAILABLE_PERMISSIONS = [
 
 export default function AdminDashboard() {
   const { user, role, permissions: userPermissions, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'subjects'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'subjects' | 'general'>('users');
   
+  // General Settings State
+  const [academicYear, setAcademicYear] = useState('2026-2027');
+  const [savingGeneral, setSavingGeneral] = useState(false);
+
   // User Management State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -62,10 +66,38 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchGeneralSettings = async () => {
+    try {
+      const docSnap = await getDoc(doc(db, 'settings', 'general'));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.academicYear) setAcademicYear(data.academicYear);
+      } else {
+        await setDoc(doc(db, 'settings', 'general'), { academicYear: '2026-2027' });
+      }
+    } catch (err) {
+      console.error("Error fetching general settings:", err);
+    }
+  };
+
+  const saveGeneralSettings = async () => {
+    setSavingGeneral(true);
+    try {
+      await setDoc(doc(db, 'settings', 'general'), { academicYear }, { merge: true });
+      alert("General settings saved successfully!");
+    } catch (err) {
+      console.error("Error saving general settings:", err);
+      alert("Failed to save settings.");
+    } finally {
+      setSavingGeneral(false);
+    }
+  };
+
   useEffect(() => {
     if (userPermissions.includes('manage_users') || role === 'admin') {
       fetchUsers();
       fetchSubjects();
+      fetchGeneralSettings();
     }
   }, [userPermissions, role]);
 
@@ -227,8 +259,47 @@ export default function AdminDashboard() {
           >
             Subject Management
           </button>
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`${
+              activeTab === 'general'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            General Settings
+          </button>
         </nav>
       </div>
+
+      {activeTab === 'general' && (
+        <div className="space-y-8">
+          <div className="bg-white shadow rounded-xl p-6 border border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">General Settings</h2>
+            <div className="space-y-4 max-w-md">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+                <input 
+                  type="text" 
+                  value={academicYear} 
+                  onChange={e => setAcademicYear(e.target.value)} 
+                  placeholder="e.g. 2026-2027"
+                  className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-blue-500 focus:border-blue-500" 
+                />
+                <p className="text-xs text-gray-500 mt-1">This will be displayed on reports and exports.</p>
+              </div>
+              <button 
+                onClick={saveGeneralSettings} 
+                disabled={savingGeneral}
+                className="bg-blue-600 text-white px-5 py-2.5 rounded-md hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 flex items-center"
+              >
+                {savingGeneral && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'users' && (
         <div className="space-y-8">
@@ -253,18 +324,22 @@ export default function AdminDashboard() {
               
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
-                <div className="flex flex-wrap gap-4">
-                  {AVAILABLE_PERMISSIONS.map(perm => (
-                    <label key={perm.id} className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={permissions.includes(perm.id)}
-                        onChange={() => togglePermission(perm.id, false)}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{perm.label}</span>
-                    </label>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {AVAILABLE_PERMISSIONS.map(perm => {
+                    const isSelected = permissions.includes(perm.id);
+                    return (
+                      <div 
+                        key={perm.id} 
+                        onClick={() => togglePermission(perm.id, false)}
+                        className={`cursor-pointer border rounded-lg p-3 flex items-center justify-between transition-colors ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>{perm.label}</span>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -320,17 +395,21 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
                         {editingUser === u.username && u.username !== 'Admin' ? (
                           <div className="flex flex-wrap gap-2">
-                            {AVAILABLE_PERMISSIONS.map(perm => (
-                              <label key={perm.id} className="inline-flex items-center text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={editPermissions.includes(perm.id)}
-                                  onChange={() => togglePermission(perm.id, true)}
-                                  className="rounded border-gray-300 text-blue-600 shadow-sm mr-1"
-                                />
-                                {perm.label}
-                              </label>
-                            ))}
+                            {AVAILABLE_PERMISSIONS.map(perm => {
+                              const isSelected = editPermissions.includes(perm.id);
+                              return (
+                                <div 
+                                  key={perm.id} 
+                                  onClick={() => togglePermission(perm.id, true)}
+                                  className={`cursor-pointer border rounded px-2 py-1 flex items-center transition-colors text-xs ${isSelected ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                                >
+                                  <div className={`w-3 h-3 rounded-sm border flex items-center justify-center mr-1.5 ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                                    {isSelected && <Check className="w-2 h-2 text-white" />}
+                                  </div>
+                                  {perm.label}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-1">

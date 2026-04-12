@@ -177,13 +177,14 @@ export default function EditOrder() {
     }
     setIsSubmitting(true);
     try {
+      const sanitizedData = JSON.parse(JSON.stringify(data));
       await updateDoc(doc(db, 'inventory_entries', params.id as string), {
-        ...data,
+        ...sanitizedData,
         projectedRequired,
         orderQuantity,
       });
       
-      await logAudit('UPDATE', 'inventory_entries', params.id as string, { ...data, projectedRequired, orderQuantity }, username || 'unknown');
+      await logAudit('UPDATE', 'inventory_entries', params.id as string, { ...sanitizedData, projectedRequired, orderQuantity }, username || 'unknown');
       
       router.push('/');
     } catch (error) {

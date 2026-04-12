@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [filterGrade, setFilterGrade] = useState('All');
   const [filterSubject, setFilterSubject] = useState('All');
   const [dbSubjects, setDbSubjects] = useState<any>({});
+  const [academicYear, setAcademicYear] = useState<string>('2026-2027');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,17 +59,22 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const fetchSubjects = async () => {
+    const fetchSettings = async () => {
       try {
         const docSnap = await getDoc(doc(db, 'settings', 'subjects'));
         if (docSnap.exists()) {
           setDbSubjects(docSnap.data());
         }
+        const generalSnap = await getDoc(doc(db, 'settings', 'general'));
+        if (generalSnap.exists()) {
+          const data = generalSnap.data();
+          if (data.academicYear) setAcademicYear(data.academicYear);
+        }
       } catch (err) {
-        console.error("Error fetching subjects:", err);
+        console.error("Error fetching settings:", err);
       }
     };
-    fetchSubjects();
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -128,7 +134,18 @@ export default function Dashboard() {
   });
 
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredEntries.map(e => ({
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString();
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      [`Book Order Summary - Academic Year: ${academicYear}`],
+      [`Printed on: ${dateStr} at ${timeStr}`],
+      [`Printed by: ${authUsername || 'Unknown'}`],
+      []
+    ]);
+
+    XLSX.utils.sheet_add_json(worksheet, filteredEntries.map(e => ({
       Program: e.program,
       Grade: e.grade,
       Subject: e.subject,
@@ -142,15 +159,29 @@ export default function Dashboard() {
       'Final Order Quantity': e.orderQuantity,
       Format: e.format,
       Type: e.type
-    })));
+    })), { origin: "A5" });
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Book Orders");
-    XLSX.writeFile(workbook, "Book_Orders.xlsx");
+    XLSX.writeFile(workbook, `Book_Orders_${academicYear}.xlsx`);
   };
 
   const exportToPDF = () => {
     const doc = new jsPDF('landscape');
-    doc.text("Book Order Summary", 14, 15);
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString();
+
+    doc.setFontSize(14);
+    doc.text(`Book Order Summary - Academic Year: ${academicYear}`, 14, 15);
+    
+    doc.setFontSize(10);
+    doc.text(`Printed on: ${dateStr} at ${timeStr}`, 14, 22);
+    
+    doc.text(`Printed by: `, 14, 28);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${authUsername || 'Unknown'}`, 35, 28);
+    doc.setFont("helvetica", "normal");
     
     const tableColumn = ["Program", "Grade", "Subject", "Book Title", "ISBN", "Publisher", "Students", "Proj %", "Required", "Stock", "Final Qty", "Format", "Type"];
     const tableRows = filteredEntries.map(e => [
@@ -172,12 +203,12 @@ export default function Dashboard() {
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
-      startY: 20,
+      startY: 35,
       styles: { fontSize: 7 },
       headStyles: { fillColor: [41, 128, 185] },
     });
 
-    doc.save("Book_Orders.pdf");
+    doc.save(`Book_Orders_${academicYear}.pdf`);
   };
 
   const handleDelete = async (id: string) => {
