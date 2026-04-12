@@ -9,7 +9,7 @@ import { useAuth } from './AuthProvider';
 export default function Navigation() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, role, logOut } = useAuth();
+  const { user, role, permissions, logOut } = useAuth();
 
   if (!user) return null;
 
@@ -39,7 +39,7 @@ export default function Navigation() {
                 <LayoutDashboard className="h-4 w-4 mr-2" />
                 Dashboard
               </Link>
-              {(role === 'admin' || role === 'coordinator') && (
+              {(permissions.includes('add_order') || role === 'admin' || role === 'coordinator') && (
                 <Link
                   href="/add"
                   className={`${
@@ -52,7 +52,7 @@ export default function Navigation() {
                   Add Order
                 </Link>
               )}
-              {role === 'admin' && (
+              {(permissions.includes('manage_users') || role === 'admin') && (
                 <Link
                   href="/admin"
                   className={`${

@@ -13,8 +13,15 @@ const DEFAULT_SUBJECTS = {
   IB: ['INS (Individuals & Societies)']
 };
 
+const AVAILABLE_PERMISSIONS = [
+  { id: 'view', label: 'View' },
+  { id: 'print', label: 'Print/Export' },
+  { id: 'add_order', label: 'Add/Edit Orders' },
+  { id: 'manage_users', label: 'Manage Users' }
+];
+
 export default function AdminDashboard() {
-  const { user, role, loading } = useAuth();
+  const { user, role, permissions: userPermissions, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<'users' | 'subjects'>('users');
   
   // User Management State
@@ -22,10 +29,12 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState('');
   const [program, setProgram] = useState('American');
   const [userRole, setUserRole] = useState('viewer');
+  const [permissions, setPermissions] = useState<string[]>(['view']);
   const [users, setUsers] = useState<any[]>([]);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editProgram, setEditProgram] = useState('');
   const [editRole, setEditRole] = useState('');
+  const [editPermissions, setEditPermissions] = useState<string[]>([]);
 
   // Subject Management State
   const [subjects, setSubjects] = useState<any>(DEFAULT_SUBJECTS);
@@ -54,11 +63,37 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (role === 'admin') {
+    if (userPermissions.includes('manage_users') || role === 'admin') {
       fetchUsers();
       fetchSubjects();
     }
-  }, [role]);
+  }, [userPermissions, role]);
+
+  const handleRoleChange = (newRole: string, isEdit: boolean) => {
+    let defaultPerms = ['view'];
+    if (newRole === 'admin') defaultPerms = ['view', 'print', 'add_order', 'manage_users'];
+    else if (newRole === 'coordinator') defaultPerms = ['view', 'print', 'add_order'];
+    
+    if (isEdit) {
+      setEditRole(newRole);
+      setEditPermissions(defaultPerms);
+    } else {
+      setUserRole(newRole);
+      setPermissions(defaultPerms);
+    }
+  };
+
+  const togglePermission = (permId: string, isEdit: boolean) => {
+    if (isEdit) {
+      setEditPermissions(prev => 
+        prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
+      );
+    } else {
+      setPermissions(prev => 
+        prev.includes(permId) ? prev.filter(p => p !== permId) : [...prev, permId]
+      );
+    }
+  };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,11 +102,13 @@ export default function AdminDashboard() {
         username,
         password,
         program,
-        role: userRole
+        role: userRole,
+        permissions
       });
       alert('User created successfully');
       setUsername('');
       setPassword('');
+      setPermissions(['view']);
       fetchUsers();
     } catch (err) {
       console.error(err);
@@ -83,7 +120,8 @@ export default function AdminDashboard() {
     try {
       await updateDoc(doc(db, 'user_accounts', usernameToUpdate), {
         program: editProgram,
-        role: editRole
+        role: editRole,
+        permissions: editPermissions
       });
       setEditingUser(null);
       fetchUsers();
@@ -152,7 +190,7 @@ export default function AdminDashboard() {
   };
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
-  if (role !== 'admin') return <div className="text-center p-12 text-red-600">Access denied</div>;
+  if (!userPermissions.includes('manage_users') && role !== 'admin') return <div className="text-center p-12 text-red-600">Access denied</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -206,13 +244,31 @@ export default function AdminDashboard() {
                   <option value="British">British</option>
                   <option value="IB">IB</option>
                 </select>
-                <select value={userRole} onChange={e => setUserRole(e.target.value)} className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                <select value={userRole} onChange={e => handleRoleChange(e.target.value, false)} className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-blue-500 focus:border-blue-500">
                   <option value="viewer">Viewer</option>
                   <option value="coordinator">Coordinator</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
-              <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-md hover:bg-blue-700 font-medium transition-colors">Create User</button>
+              
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <div className="flex flex-wrap gap-4">
+                  {AVAILABLE_PERMISSIONS.map(perm => (
+                    <label key={perm.id} className="inline-flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={permissions.includes(perm.id)}
+                        onChange={() => togglePermission(perm.id, false)}
+                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{perm.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-md hover:bg-blue-700 font-medium transition-colors mt-4">Create User</button>
             </form>
           </div>
 
@@ -227,6 +283,7 @@ export default function AdminDashboard() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permissions</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -236,7 +293,7 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.username}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {editingUser === u.username && u.username !== 'Admin' ? (
-                          <select value={editRole} onChange={e => setEditRole(e.target.value)} className="border border-gray-300 rounded p-1 text-sm">
+                          <select value={editRole} onChange={e => handleRoleChange(e.target.value, true)} className="border border-gray-300 rounded p-1 text-sm">
                             <option value="viewer">Viewer</option>
                             <option value="coordinator">Coordinator</option>
                             <option value="admin">Admin</option>
@@ -260,6 +317,31 @@ export default function AdminDashboard() {
                           u.program
                         )}
                       </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                        {editingUser === u.username && u.username !== 'Admin' ? (
+                          <div className="flex flex-wrap gap-2">
+                            {AVAILABLE_PERMISSIONS.map(perm => (
+                              <label key={perm.id} className="inline-flex items-center text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={editPermissions.includes(perm.id)}
+                                  onChange={() => togglePermission(perm.id, true)}
+                                  className="rounded border-gray-300 text-blue-600 shadow-sm mr-1"
+                                />
+                                {perm.label}
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {(u.permissions || []).map((p: string) => (
+                              <span key={p} className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs">
+                                {AVAILABLE_PERMISSIONS.find(ap => ap.id === p)?.label || p}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         {u.username !== 'Admin' && (
                           <div className="flex justify-end space-x-3">
@@ -279,6 +361,7 @@ export default function AdminDashboard() {
                                     setEditingUser(u.username);
                                     setEditRole(u.role);
                                     setEditProgram(u.program);
+                                    setEditPermissions(u.permissions || []);
                                   }} 
                                   className="text-blue-600 hover:text-blue-900" title="Edit"
                                 >

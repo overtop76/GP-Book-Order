@@ -26,7 +26,7 @@ interface InventoryEntry {
 }
 
 export default function Dashboard() {
-  const { user, username: authUsername, role, program: userProgram, loading, signIn } = useAuth();
+  const { user, username: authUsername, role, program: userProgram, permissions, loading, signIn } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -153,6 +153,9 @@ export default function Dashboard() {
     );
   }
 
+  const canPrint = permissions?.includes('print') || role === 'admin' || role === 'coordinator';
+  const canAddOrder = permissions?.includes('add_order') || role === 'admin' || role === 'coordinator';
+
   return (
     <div>
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
@@ -172,20 +175,24 @@ export default function Dashboard() {
             <option value="British">British</option>
             <option value="IB">IB</option>
           </select>
-          <button
-            onClick={exportToExcel}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
-            Excel
-          </button>
-          <button
-            onClick={exportToPDF}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <Download className="h-4 w-4 mr-2 text-red-600" />
-            PDF
-          </button>
+          {canPrint && (
+            <>
+              <button
+                onClick={exportToExcel}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                Excel
+              </button>
+              <button
+                onClick={exportToPDF}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Download className="h-4 w-4 mr-2 text-red-600" />
+                PDF
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -230,7 +237,7 @@ export default function Dashboard() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Book Details</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock / Req</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order Qty</th>
-                    {(role === 'admin' || role === 'coordinator') && (
+                    {canAddOrder && (
                       <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     )}
                   </tr>
@@ -260,7 +267,7 @@ export default function Dashboard() {
                           {entry.orderQuantity}
                         </span>
                       </td>
-                      {(role === 'admin' || role === 'coordinator') && (
+                      {canAddOrder && (
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                           <button onClick={() => window.location.href = `/edit/${entry.id}`} className="text-blue-600 hover:text-blue-900">Edit</button>
                           <button onClick={() => handleDelete(entry.id)} className="text-red-600 hover:text-red-900">Delete</button>
@@ -270,7 +277,7 @@ export default function Dashboard() {
                   ))}
                   {filteredEntries.length === 0 && (
                     <tr>
-                      <td colSpan={(role === 'admin' || role === 'coordinator') ? 6 : 5} className="px-6 py-4 text-center text-sm text-gray-500">
+                      <td colSpan={canAddOrder ? 6 : 5} className="px-6 py-4 text-center text-sm text-gray-500">
                         No entries found.
                       </td>
                     </tr>

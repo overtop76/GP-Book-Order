@@ -60,9 +60,10 @@ const SelectableCard = ({ selected, onClick, children, disabled = false }: any) 
 );
 
 export default function AddOrder() {
-  const { user, username, role, program: userProgram, loading } = useAuth();
+  const { user, username, role, program: userProgram, permissions, loading } = useAuth();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLookingUp, setIsLookingUp] = useState(false);
   const [customSubject, setCustomSubject] = useState('');
   const [isCustomSubject, setIsCustomSubject] = useState(false);
   const [dbSubjects, setDbSubjects] = useState<any>(DEFAULT_SUBJECTS);
@@ -85,9 +86,38 @@ export default function AddOrder() {
   const selectedType = watch('type');
   const currentStock = watch('currentStock');
   const projectedRequired = watch('projectedRequired');
+  const currentIsbn = watch('isbn');
   
   const orderQuantity = Math.max(0, (projectedRequired || 0) - (currentStock || 0));
   const overstockWarning = currentStock > projectedRequired;
+
+  const handleISBNLookup = async () => {
+    if (!currentIsbn) return;
+    
+    setIsLookingUp(true);
+    try {
+      const cleanIsbn = currentIsbn.replace(/[- ]/g, '');
+      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}`);
+      const data = await response.json();
+      
+      if (data.items && data.items.length > 0) {
+        const bookInfo = data.items[0].volumeInfo;
+        if (bookInfo.title) {
+          setValue('bookTitle', bookInfo.title, { shouldValidate: true });
+        }
+        if (bookInfo.publisher) {
+          setValue('publisher', bookInfo.publisher, { shouldValidate: true });
+        }
+      } else {
+        alert('Book not found for this ISBN.');
+      }
+    } catch (error) {
+      console.error('Error looking up ISBN:', error);
+      alert('Failed to look up ISBN.');
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSubjects = async () => {
@@ -181,7 +211,7 @@ export default function AddOrder() {
     return <div className="text-center py-12">Please sign in to add orders.</div>;
   }
 
-  if (role === 'viewer') {
+  if (!permissions?.includes('add_order') && role !== 'admin' && role !== 'coordinator') {
     return <div className="text-center py-12 text-red-600">You do not have permission to add orders.</div>;
   }
 
@@ -296,7 +326,17 @@ export default function AddOrder() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">ISBN</label>
-              <input type="text" {...register('isbn')} className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
+              <div className="flex gap-2">
+                <input type="text" {...register('isbn')} className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
+                <button 
+                  type="button" 
+                  onClick={handleISBNLookup}
+                  disabled={isLookingUp || !currentIsbn}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {isLookingUp ? <Loader2 className="animate-spin h-4 w-4" /> : 'Lookup'}
+                </button>
+              </div>
               {errors.isbn && <p className="mt-1 text-sm text-red-600">{errors.isbn.message}</p>}
             </div>
 
