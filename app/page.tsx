@@ -70,7 +70,7 @@ export default function Dashboard() {
     });
 
     return () => unsubscribe();
-  }, [user, role]);
+  }, [user, role, userProgram]);
 
   if (loading || (user && !role) || (user && role && fetching)) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;

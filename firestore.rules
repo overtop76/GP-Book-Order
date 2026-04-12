@@ -96,5 +96,10 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update, delete: if false; // Audit logs should be immutable
     }
+
+    match /settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isRole('admin');
+    }
   }
 }
