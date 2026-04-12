@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, orderBy, where, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
+import { useRouter } from 'next/navigation';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -35,6 +36,7 @@ interface InventoryEntry {
 
 export default function Dashboard() {
   const { user, username: authUsername, role, program: userProgram, permissions, loading, signIn } = useAuth();
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -389,7 +391,7 @@ export default function Dashboard() {
                       </td>
                       {canAddOrder && (
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                          <button onClick={() => window.location.href = `/edit/${entry.id}`} className="text-blue-600 hover:text-blue-900">Edit</button>
+                          <button onClick={() => router.push(`/edit/${entry.id}`)} className="text-blue-600 hover:text-blue-900">Edit</button>
                           <button onClick={() => handleDelete(entry.id)} className="text-red-600 hover:text-red-900">Delete</button>
                         </td>
                       )}

@@ -126,31 +126,32 @@ export default function EditOrder() {
   };
 
   useEffect(() => {
-    const fetchSubjects = async () => {
+    const loadData = async () => {
+      if (!params?.id) return;
+      
       try {
-        const docSnap = await getDoc(doc(db, 'settings', 'subjects'));
-        if (docSnap.exists()) {
-          setDbSubjects(docSnap.data());
+        // Fetch subjects first
+        let currentSubjects = DEFAULT_SUBJECTS;
+        try {
+          const subjectsSnap = await getDoc(doc(db, 'settings', 'subjects'));
+          if (subjectsSnap.exists()) {
+            currentSubjects = subjectsSnap.data() as any;
+            setDbSubjects(currentSubjects);
+          }
+        } catch (err) {
+          console.error("Error fetching subjects:", err);
         }
-      } catch (err) {
-        console.error("Error fetching subjects:", err);
-      }
-    };
-    fetchSubjects();
-  }, []);
 
-  useEffect(() => {
-    const fetchEntry = async () => {
-      if (!params.id) return;
-      try {
+        // Then fetch entry
         const docRef = doc(db, 'inventory_entries', params.id as string);
         const docSnap = await getDoc(docRef);
+        
         if (docSnap.exists()) {
           const data = docSnap.data() as FormData;
           Object.keys(data).forEach(key => setValue(key as keyof FormData, data[key as keyof FormData]));
           
           // Check if the loaded subject is a custom one
-          const availableSubjects = [...(dbSubjects.core || []), ...(dbSubjects[data.program] || [])];
+          const availableSubjects = [...(currentSubjects.core || []), ...(currentSubjects[data.program as keyof typeof currentSubjects] || [])];
           if (data.subject && !availableSubjects.includes(data.subject)) {
             setIsCustomSubject(true);
             setCustomSubject(data.subject);
@@ -166,11 +167,12 @@ export default function EditOrder() {
         setFetching(false);
       }
     };
-    fetchEntry();
-  }, [params.id, setValue, router, dbSubjects]);
+    
+    loadData();
+  }, [params?.id, setValue, router]);
 
   const onSubmit = async (data: FormData) => {
-    if (!user || !params.id) return;
+    if (!user || !params?.id) return;
     if (!data.isbn) {
       alert("Missing ISBN!");
       return;
