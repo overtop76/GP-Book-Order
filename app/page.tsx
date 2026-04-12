@@ -7,7 +7,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { logAudit } from '@/lib/audit';
 
 interface InventoryEntry {
@@ -113,7 +113,7 @@ export default function Dashboard() {
       e.orderQuantity.toString()
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20,
