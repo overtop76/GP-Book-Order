@@ -25,6 +25,8 @@ interface InventoryEntry {
   isbn: string;
   publisher: string;
   currentStock: number;
+  nextYearStudents?: number;
+  projectionPercentage?: number;
   projectedRequired: number;
   orderQuantity: number;
   format: string;
@@ -121,9 +123,11 @@ export default function Dashboard() {
       'Book Title': e.bookTitle,
       ISBN: e.isbn,
       Publisher: e.publisher || '',
+      'Next Year Students': e.nextYearStudents || 0,
+      'Projection %': `${e.projectionPercentage || 0}%`,
+      'Projected Required': e.projectedRequired,
       'Current Stock': e.currentStock,
-      'Required': e.projectedRequired,
-      'Order Quantity': e.orderQuantity,
+      'Final Order Quantity': e.orderQuantity,
       Format: e.format,
       Type: e.type
     })));
@@ -136,7 +140,7 @@ export default function Dashboard() {
     const doc = new jsPDF('landscape');
     doc.text("Book Order Summary", 14, 15);
     
-    const tableColumn = ["Program", "Grade", "Subject", "Book Title", "ISBN", "Publisher", "Current Stock", "Required", "Order Quantity", "Format", "Type"];
+    const tableColumn = ["Program", "Grade", "Subject", "Book Title", "ISBN", "Publisher", "Students", "Proj %", "Required", "Stock", "Final Qty", "Format", "Type"];
     const tableRows = filteredEntries.map(e => [
       e.program,
       e.grade,
@@ -144,8 +148,10 @@ export default function Dashboard() {
       e.bookTitle,
       e.isbn,
       e.publisher || '',
-      e.currentStock.toString(),
+      (e.nextYearStudents || 0).toString(),
+      `${e.projectionPercentage || 0}%`,
       e.projectedRequired.toString(),
+      e.currentStock.toString(),
       e.orderQuantity.toString(),
       e.format,
       e.type
@@ -155,7 +161,7 @@ export default function Dashboard() {
       head: [tableColumn],
       body: tableRows,
       startY: 20,
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7 },
       headStyles: { fillColor: [41, 128, 185] },
     });
 
@@ -301,6 +307,7 @@ export default function Dashboard() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program / Grade</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Book Details</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students / Proj %</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock / Req</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order Qty</th>
                     {canAddOrder && (
@@ -326,6 +333,10 @@ export default function Dashboard() {
                         <div className="text-xs text-gray-400">{entry.format} • {entry.type}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="text-gray-900">{entry.nextYearStudents || 0}</div>
+                        <div className="text-gray-500">{entry.projectionPercentage || 0}%</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {entry.currentStock} / {entry.projectedRequired}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -343,7 +354,7 @@ export default function Dashboard() {
                   ))}
                   {filteredEntries.length === 0 && (
                     <tr>
-                      <td colSpan={canAddOrder ? 6 : 5} className="px-6 py-4 text-center text-sm text-gray-500">
+                      <td colSpan={canAddOrder ? 7 : 6} className="px-6 py-4 text-center text-sm text-gray-500">
                         No entries found.
                       </td>
                     </tr>

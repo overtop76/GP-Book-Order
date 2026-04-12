@@ -34,7 +34,8 @@ const formSchema = z.object({
   isbn: z.string().min(1, "Missing ISBN!").regex(/^(?=(?:\D*\d){10}(?:(?:\D*\d){3})?$)[\d-]+$/, "Invalid ISBN format"),
   publisher: z.string().optional(),
   currentStock: z.number().min(0, "Stock cannot be negative"),
-  projectedRequired: z.number().min(0, "Required copies cannot be negative"),
+  nextYearStudents: z.number().min(0, "Students cannot be negative"),
+  projectionPercentage: z.number().min(0, "Percentage cannot be negative"),
   format: z.enum(['Digital', 'Hard Copy', 'Both']),
   type: z.enum(['Student Copy', 'Teacher Edition', 'Resource Material']),
 });
@@ -75,7 +76,8 @@ export default function EditOrder() {
     defaultValues: {
       program: userProgram !== 'All' ? (userProgram as any) : 'American',
       currentStock: 0,
-      projectedRequired: 0,
+      nextYearStudents: 0,
+      projectionPercentage: 5,
       format: 'Hard Copy',
       type: 'Student Copy'
     }
@@ -87,10 +89,12 @@ export default function EditOrder() {
   const selectedFormat = watch('format');
   const selectedType = watch('type');
   const currentStock = watch('currentStock');
-  const projectedRequired = watch('projectedRequired');
+  const nextYearStudents = watch('nextYearStudents');
+  const projectionPercentage = watch('projectionPercentage');
   const currentIsbn = watch('isbn');
   
-  const orderQuantity = Math.max(0, (projectedRequired || 0) - (currentStock || 0));
+  const projectedRequired = Math.ceil((nextYearStudents || 0) * (1 + (projectionPercentage || 0) / 100));
+  const orderQuantity = Math.max(0, projectedRequired - (currentStock || 0));
   const overstockWarning = currentStock > projectedRequired;
 
   const handleISBNLookup = async () => {
@@ -175,10 +179,11 @@ export default function EditOrder() {
     try {
       await updateDoc(doc(db, 'inventory_entries', params.id as string), {
         ...data,
+        projectedRequired,
         orderQuantity,
       });
       
-      await logAudit('UPDATE', 'inventory_entries', params.id as string, { ...data, orderQuantity }, username || 'unknown');
+      await logAudit('UPDATE', 'inventory_entries', params.id as string, { ...data, projectedRequired, orderQuantity }, username || 'unknown');
       
       router.push('/');
     } catch (error) {
@@ -374,7 +379,7 @@ export default function EditOrder() {
         {/* Quantities */}
         <div>
           <label className="block text-base font-semibold text-gray-900 mb-4">Inventory & Ordering</label>
-          <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Current Stock</label>
               <input type="number" {...register('currentStock', { valueAsNumber: true })} className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
@@ -382,13 +387,31 @@ export default function EditOrder() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Projected Required</label>
-              <input type="number" {...register('projectedRequired', { valueAsNumber: true })} className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
-              {errors.projectedRequired && <p className="mt-1 text-sm text-red-600">{errors.projectedRequired.message}</p>}
+              <label className="block text-sm font-medium text-gray-700 mb-1">Next Year Students</label>
+              <input type="number" {...register('nextYearStudents', { valueAsNumber: true })} className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" />
+              {errors.nextYearStudents && <p className="mt-1 text-sm text-red-600">{errors.nextYearStudents.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Order Quantity</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Projection %</label>
+              <select {...register('projectionPercentage', { valueAsNumber: true })} className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <option value={5}>5%</option>
+                <option value={10}>10%</option>
+                <option value={20}>20%</option>
+                <option value={25}>25%</option>
+              </select>
+              {errors.projectionPercentage && <p className="mt-1 text-sm text-red-600">{errors.projectionPercentage.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Projected Required</label>
+              <div className="block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-gray-900 font-semibold sm:text-sm">
+                {projectedRequired}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Final Order Qty</label>
               <div className="block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 text-gray-900 font-semibold sm:text-sm">
                 {orderQuantity}
               </div>
