@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy, where, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
@@ -9,6 +9,12 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { logAudit } from '@/lib/audit';
+
+const GRADES: Record<string, string[]> = {
+  American: ['KG1', 'KG2', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10', 'G11', 'G12'],
+  British: ['FS1', 'FS2', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6', 'Y7', 'Y8', 'Y9', 'IG1', 'IG2', 'IG3'],
+  IB: ['PYP1', 'PYP2', 'PYP3', 'PYP4', 'PYP5', 'PYP6', 'PYP7', 'PYP8', 'MYP1', 'MYP2', 'MYP3', 'MYP4', 'MYP5', 'DP1', 'DP2'],
+};
 
 interface InventoryEntry {
   id: string;
@@ -32,7 +38,11 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [entries, setEntries] = useState<InventoryEntry[]>([]);
   const [fetching, setFetching] = useState(true);
+  
   const [filterProgram, setFilterProgram] = useState('All');
+  const [filterGrade, setFilterGrade] = useState('All');
+  const [filterSubject, setFilterSubject] = useState('All');
+  const [dbSubjects, setDbSubjects] = useState<any>({});
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +54,20 @@ export default function Dashboard() {
       setError(err.message || 'Invalid username or password');
     }
   };
+
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, 'settings', 'subjects'));
+        if (docSnap.exists()) {
+          setDbSubjects(docSnap.data());
+        }
+      } catch (err) {
+        console.error("Error fetching subjects:", err);
+      }
+    };
+    fetchSubjects();
+  }, []);
 
   useEffect(() => {
     if (!user || !role || !userProgram) {
@@ -72,13 +96,22 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [user, role, userProgram]);
 
+  const handleProgramChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterProgram(e.target.value);
+    setFilterGrade('All');
+    setFilterSubject('All');
+  };
+
   if (loading || (user && !role) || (user && role && fetching)) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
   }
 
-  const filteredEntries = filterProgram === 'All' 
-    ? entries 
-    : entries.filter(e => e.program === filterProgram);
+  const filteredEntries = entries.filter(e => {
+    if (filterProgram !== 'All' && e.program !== filterProgram) return false;
+    if (filterGrade !== 'All' && e.grade !== filterGrade) return false;
+    if (filterSubject !== 'All' && e.subject !== filterSubject) return false;
+    return true;
+  });
 
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredEntries.map(e => ({
@@ -100,23 +133,30 @@ export default function Dashboard() {
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
+    const doc = new jsPDF('landscape');
     doc.text("Book Order Summary", 14, 15);
     
-    const tableColumn = ["Program", "Grade", "Subject", "Book Title", "ISBN", "Order Qty"];
+    const tableColumn = ["Program", "Grade", "Subject", "Book Title", "ISBN", "Publisher", "Current Stock", "Required", "Order Quantity", "Format", "Type"];
     const tableRows = filteredEntries.map(e => [
       e.program,
       e.grade,
       e.subject,
       e.bookTitle,
       e.isbn,
-      e.orderQuantity.toString()
+      e.publisher || '',
+      e.currentStock.toString(),
+      e.projectedRequired.toString(),
+      e.orderQuantity.toString(),
+      e.format,
+      e.type
     ]);
 
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [41, 128, 185] },
     });
 
     doc.save("Book_Orders.pdf");
@@ -156,6 +196,9 @@ export default function Dashboard() {
   const canPrint = permissions?.includes('print') || role === 'admin' || role === 'coordinator';
   const canAddOrder = permissions?.includes('add_order') || role === 'admin' || role === 'coordinator';
 
+  const availableGrades = filterProgram !== 'All' ? GRADES[filterProgram] || [] : [];
+  const availableSubjects = filterProgram !== 'All' ? [...(dbSubjects.core || []), ...(dbSubjects[filterProgram] || [])] : [];
+
   return (
     <div>
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
@@ -163,18 +206,41 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-2 text-sm text-gray-700">Overview of all book orders across programs.</p>
         </div>
-        <div className="mt-4 sm:mt-0 flex space-x-3">
+        <div className="mt-4 sm:mt-0 flex flex-wrap gap-3 items-center justify-end">
           <select
             value={filterProgram}
-            onChange={(e) => setFilterProgram(e.target.value)}
+            onChange={handleProgramChange}
             disabled={userProgram !== 'All' && role !== 'admin'}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:text-gray-500"
+            className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:text-gray-500"
           >
             {(role === 'admin' || userProgram === 'All') && <option value="All">All Programs</option>}
             <option value="American">American</option>
             <option value="British">British</option>
             <option value="IB">IB</option>
           </select>
+          
+          {filterProgram !== 'All' && (
+            <>
+              <select
+                value={filterGrade}
+                onChange={(e) => setFilterGrade(e.target.value)}
+                className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              >
+                <option value="All">All Grades</option>
+                {availableGrades.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              
+              <select
+                value={filterSubject}
+                onChange={(e) => setFilterSubject(e.target.value)}
+                className="block rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+              >
+                <option value="All">All Subjects</option>
+                {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </>
+          )}
+
           {canPrint && (
             <>
               <button

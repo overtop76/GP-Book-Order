@@ -31,7 +31,7 @@ const formSchema = z.object({
   grade: z.string().min(1, "Grade is required"),
   subject: z.string().min(1, "Subject is required"),
   bookTitle: z.string().min(1, "Book title is required"),
-  isbn: z.string().regex(/^(?=(?:\D*\d){10}(?:(?:\D*\d){3})?$)[\d-]+$/, "Invalid ISBN format"),
+  isbn: z.string().min(1, "Missing ISBN!").regex(/^(?=(?:\D*\d){10}(?:(?:\D*\d){3})?$)[\d-]+$/, "Invalid ISBN format"),
   publisher: z.string().optional(),
   currentStock: z.number().min(0, "Stock cannot be negative"),
   projectedRequired: z.number().min(0, "Required copies cannot be negative"),

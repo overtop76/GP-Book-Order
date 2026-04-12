@@ -31,7 +31,7 @@ const formSchema = z.object({
   grade: z.string().min(1, "Grade is required"),
   subject: z.string().min(1, "Subject is required"),
   bookTitle: z.string().min(1, "Book title is required"),
-  isbn: z.string().regex(/^(?=(?:\D*\d){10}(?:(?:\D*\d){3})?$)[\d-]+$/, "Invalid ISBN format"),
+  isbn: z.string().min(1, "Missing ISBN!").regex(/^(?=(?:\D*\d){10}(?:(?:\D*\d){3})?$)[\d-]+$/, "Invalid ISBN format"),
   publisher: z.string().optional(),
   currentStock: z.number().min(0, "Stock cannot be negative"),
   projectedRequired: z.number().min(0, "Required copies cannot be negative"),
@@ -67,6 +67,7 @@ export default function AddOrder() {
   const [customSubject, setCustomSubject] = useState('');
   const [isCustomSubject, setIsCustomSubject] = useState(false);
   const [dbSubjects, setDbSubjects] = useState<any>(DEFAULT_SUBJECTS);
+  const [draftSavedTime, setDraftSavedTime] = useState<Date | null>(null);
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isValid } } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -152,6 +153,7 @@ export default function AddOrder() {
       // Only save if we have some data
       if (value.bookTitle || value.isbn) {
         localStorage.setItem('bookOrderDraft', JSON.stringify(value));
+        setDraftSavedTime(new Date());
       }
     });
     return () => subscription.unsubscribe();
@@ -227,7 +229,16 @@ export default function AddOrder() {
     <div className="max-w-4xl mx-auto pb-12">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Add Book Order</h1>
-        <span className="text-sm text-gray-500 italic">Draft auto-saves as you type</span>
+        <div className="flex items-center text-sm text-gray-500 italic">
+          {draftSavedTime ? (
+            <span className="flex items-center text-green-600">
+              <Check className="w-4 h-4 mr-1" />
+              Draft saved at {draftSavedTime.toLocaleTimeString()}
+            </span>
+          ) : (
+            <span>Draft auto-saves as you type</span>
+          )}
+        </div>
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-10 bg-white p-8 shadow rounded-xl">
