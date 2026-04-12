@@ -113,6 +113,18 @@ export default function Dashboard() {
     if (filterGrade !== 'All' && e.grade !== filterGrade) return false;
     if (filterSubject !== 'All' && e.subject !== filterSubject) return false;
     return true;
+  }).sort((a, b) => {
+    const programCompare = a.program.localeCompare(b.program);
+    if (programCompare !== 0) return programCompare;
+    
+    const gradesForProgram = GRADES[a.program] || [];
+    const indexA = gradesForProgram.indexOf(a.grade);
+    const indexB = gradesForProgram.indexOf(b.grade);
+    
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    return a.grade.localeCompare(b.grade);
   });
 
   const exportToExcel = () => {
